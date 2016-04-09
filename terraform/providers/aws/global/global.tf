@@ -1,17 +1,12 @@
 variable "domain"            { }
-variable "atlas_username"    { }
-variable "atlas_environment" { }
 variable "name"              { }
 variable "region"            { }
 variable "iam_admins"        { }
 variable "iam_vault_envs"    { }
+variable "zone_id"           { }
 
 provider "aws" {
   region = "${var.region}"
-}
-
-atlas {
-  name = "${var.atlas_username}/${var.atlas_environment}"
 }
 
 module "iam_admin" {
@@ -66,14 +61,11 @@ module "iam_vault" {
 EOF
 }
 
-resource "aws_route53_zone" "zone" {
-  name = "${var.domain}"
-}
 
 module "prod_website" {
   source = "../../../modules/aws/util/website"
 
-  route_zone_id = "${aws_route53_zone.zone.zone_id}"
+  route_zone_id = "${var.zone_id}"
   fqdn          = "${var.domain}"
   sub_domain    = "${var.domain}"
 }
@@ -81,7 +73,7 @@ module "prod_website" {
 module "staging_website" {
   source = "../../../modules/aws/util/website"
 
-  route_zone_id = "${aws_route53_zone.zone.zone_id}"
+  route_zone_id = "${var.zone_id}"
   fqdn          = "staging.${var.domain}"
   sub_domain    = "staging"
 }
@@ -89,8 +81,6 @@ module "staging_website" {
 output "config" {
   value = <<CONFIG
 
-DNS records have been set in Route53, add NS records for ${var.domain} pointing to:
-  ${join("\n  ", formatlist("%s", aws_route53_zone.zone.*.name_servers))}
 
 Admin IAM:
   Admin Users: ${join("\n               ", formatlist("%s", split(",", module.iam_admin.users)))}
@@ -124,4 +114,4 @@ output "staging_endpoint" { value = "${module.staging_website.endpoint}" }
 output "staging_fqdn"     { value = "${module.staging_website.fqdn}" }
 output "staging_zone_id"  { value = "${module.staging_website.hosted_zone_id}" }
 
-output "zone_id" { value = "${aws_route53_zone.zone.zone_id}" }
+output "zone_id" { value = "${var.zone_id}" }
